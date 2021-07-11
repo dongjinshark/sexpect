@@ -160,6 +160,66 @@ cli_send_winsize(void)
     return 0;
 }
 
+static bool
+cli_interact_matched(ttlv_t * msg)
+{
+    struct st_pass * pass = & g.cmdopts->pass;
+    const int bufsize = 4096;
+    static int buflen = 0;
+    const int halfsize = bufsize / 2;
+    static char * buf = NULL;
+    char * new = NULL;
+    int newlen = 0, copylen = 0;
+    int i;
+
+    if (buf == NULL) {
+        /* one more byte for trailing '\0' */
+        buf = malloc(bufsize + 1);
+        if (buf == NULL) {
+            fatal_sys("malloc");
+        }
+    }
+
+    if ( ! streq(g.cmdopts->cmd, CMD_INTERACT) || pass->pattern == NULL) {
+        return false;
+    }
+    if (msg->tag != TAG_OUTPUT) {
+        return false;
+    }
+
+    new = (char *)msg->v_raw;
+    newlen = msg->length;
+    while (newlen > 0) {
+        if (buflen > halfsize) {
+            memmove(buf, buf + buflen - halfsize, halfsize);
+            buflen = halfsize;
+        }
+
+        if (newlen > bufsize - buflen) {
+            copylen = bufsize - buflen;
+        } else {
+            copylen = newlen;
+        }
+
+        /* copy new data to match buffer, with NULL bytes removed */
+        for (i = 0; i < copylen; ++i) {
+            if (new[i] != '\0') {
+                buf[buflen] = new[i];
+                ++ buflen;
+            }
+        }
+        buf[buflen] = 0;
+        new += copylen;
+        newlen -= copylen;
+
+        if (strmatch_ex(buf, pass->pattern, pass->expflags & PASS_EXPECT_ICASE) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void
 cli_loop(void)
 {
@@ -175,7 +235,7 @@ cli_loop(void)
 
     while (true) {
         /* SIGWINCH */
-        if (g.received_winch && streq(cmdopts->cmd, "interact") ) {
+        if (g.received_winch && streq(cmdopts->cmd, CMD_INTERACT) ) {
             g.received_winch = false;
             cli_send_winsize();
         }
@@ -190,7 +250,7 @@ cli_loop(void)
             }
         }
 
-        if (streq(cmdopts->cmd, "interact") ) {
+        if (streq(cmdopts->cmd, CMD_INTERACT) ) {
             FD_SET(STDIN_FILENO, &readfds);
             if (STDIN_FILENO > fd_max) {
                 fd_max = STDIN_FILENO;
@@ -247,6 +307,10 @@ cli_loop(void)
                 cli_disconn(0);
             } else if (msg_in->tag == TAG_OUTPUT) {
                 write(STDOUT_FILENO, msg_in->v_raw, msg_in->length);
+
+                if (cli_interact_matched(msg_in) ) {
+                    cli_disconn(0);
+                }
             } else if (msg_in->tag == TAG_EXPOUT_TEXT) {
                 write(STDOUT_FILENO, msg_in->v_text, msg_in->length);
                 cli_disconn(0);
@@ -365,7 +429,7 @@ cli_main(struct st_cmdopts * cmdopts)
     g.cmdopts = cmdopts;
     subcmd = cmdopts->cmd;
 
-    if (streq(subcmd, "chkerr") ) {
+    if (streq(subcmd, CMD_CHKERR) ) {
         cli_chkerr();
         return;
     }
@@ -375,19 +439,19 @@ cli_main(struct st_cmdopts * cmdopts)
     g.stdin_is_tty = isatty(STDIN_FILENO);
 
     /* close */
-    if (streq(subcmd, "close") ) {
+    if (streq(subcmd, CMD_CLOSE) ) {
         msg_out = ttlv_new_struct(TAG_CLOSE);
 
         /* expect_out */
-    } else if (streq(subcmd, "expect_out") ) {
+    } else if (streq(subcmd, CMD_EXPOUT) ) {
         msg_out = ttlv_new_int(TAG_EXPOUT, cmdopts->expout.index);
 
         /* get */
-    } else if (streq(subcmd, "get") ) {
+    } else if (streq(subcmd, CMD_GET) ) {
         msg_out = ttlv_new_struct(TAG_INFO);
 
         /* kill */
-    } else if (streq(subcmd, "kill") ) {
+    } else if (streq(subcmd, CMD_KILL) ) {
         if (cmdopts->kill.signal < 0) {
             msg_out = ttlv_new_int(TAG_KILL, (int) SIGTERM);
         } else {
@@ -395,7 +459,7 @@ cli_main(struct st_cmdopts * cmdopts)
         }
 
         /* send */
-    } else if (streq(subcmd, "send") ) {
+    } else if (streq(subcmd, CMD_SEND) ) {
         if (cmdopts->send.enter) {
             msg_out = ttlv_new_raw(TAG_SEND,
                 cmdopts->send.len + 1, cmdopts->send.data);
@@ -408,7 +472,7 @@ cli_main(struct st_cmdopts * cmdopts)
         }
 
         /* set */
-    } else if (streq(subcmd, "set") ) {
+    } else if (streq(subcmd, CMD_SET) ) {
         msg_out = ttlv_new_struct(TAG_SET);
 
         if (cmdopts->set.set_autowait) {
@@ -500,7 +564,7 @@ cli_main(struct st_cmdopts * cmdopts)
     cli_hello();
 
     /* raw mode for "interact" */
-    if (streq(cmdopts->cmd, "interact") ) {
+    if (streq(cmdopts->cmd, CMD_INTERACT) ) {
         /* user's tty to raw mode */
         if (tty_raw(STDIN_FILENO, &g.saved_termios) < 0)
             fatal_sys("tty_raw");
@@ -517,7 +581,7 @@ cli_main(struct st_cmdopts * cmdopts)
     cli_msg_send(msg_out);
     msg_free(&msg_out);
 
-    if (streq(cmdopts->cmd, "interact") ) {
+    if (streq(cmdopts->cmd, CMD_INTERACT) ) {
         cli_send_winsize();
     }
 

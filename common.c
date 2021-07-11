@@ -297,7 +297,7 @@ str1of(const char *s, ...)
     return found;
 }
 
-static bool
+bool
 strmatch_ex(const char *s, const char *pattern, bool icase)
 {
     regex_t re;

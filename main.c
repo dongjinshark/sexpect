@@ -17,7 +17,7 @@
 #define str_false(s)  str1of(s, "0", "off", "no",  "n", "false", NULL)
 
 char * const SEXPECT  = "sexpect";
-char * const VERSION_ = "2.3.6";
+char * const VERSION_ = "2.3.7";
 
 static struct {
     char * progname;
@@ -293,33 +293,33 @@ getargs(int argc, char **argv)
             } else {
                 /* chkerr */
                 if (str1of(arg, "chkerr", "ckerr", "chk", "ck", "err", NULL) ) {
-                    g.cmdopts.cmd = "chkerr";
+                    g.cmdopts.cmd = CMD_CHKERR;
                     g.cmdopts.chkerr.errcode = -1;
 
                     /* close */
                 } else if (str1of(arg, "close", "c", NULL) ) {
-                    g.cmdopts.cmd = "close";
+                    g.cmdopts.cmd = CMD_CLOSE;
 
                     /* expect */
                 } else if (str1of(arg, "expect", "exp", "ex", "x", NULL) ) {
-                    g.cmdopts.cmd = "expect";
+                    g.cmdopts.cmd = CMD_EXPECT;
                     g.cmdopts.passing = true;
                     g.cmdopts.pass.subcmd = PASS_SUBCMD_EXPECT;
                     g.cmdopts.pass.no_input = true;
 
                     /* expect_out */
                 } else if (str1of(arg, "expect_out", "expout", "out", NULL) ) {
-                    g.cmdopts.cmd = "expect_out";
+                    g.cmdopts.cmd = CMD_EXPOUT;
                     g.cmdopts.expout.index = 0;
 
                     /* get */
                 } else if (str1of(arg, "get", NULL) ) {
-                    g.cmdopts.cmd = "get";
+                    g.cmdopts.cmd = CMD_GET;
                     g.cmdopts.get.get_all = true;
 
                     /* interact */
                 } else if (str1of(arg, "interact", "i", NULL) ) {
-                    g.cmdopts.cmd = "interact";
+                    g.cmdopts.cmd = CMD_INTERACT;
                     g.cmdopts.passing = true;
                     g.cmdopts.pass.subcmd = PASS_SUBCMD_INTERACT;
                     g.cmdopts.pass.has_timeout = true;
@@ -328,28 +328,28 @@ getargs(int argc, char **argv)
 
                     /* kill */
                 } else if (str1of(arg, "kill", "k", NULL) ) {
-                    g.cmdopts.cmd = "kill";
+                    g.cmdopts.cmd = CMD_KILL;
                     g.cmdopts.kill.signal = -1;
 
                     /* send */
                 } else if (str1of(arg, "send", "s", NULL) ) {
-                    g.cmdopts.cmd = "send";
+                    g.cmdopts.cmd = CMD_SEND;
 
                     /* set */
                 } else if (str1of(arg, "set", NULL) ) {
-                    g.cmdopts.cmd = "set";
+                    g.cmdopts.cmd = CMD_SET;
                     g.cmdopts.set.timeout = PASS_DEF_TMOUT;
 
                     /* spawn */
                 } else if (str1of(arg, "spawn", "sp", "fork", NULL) ) {
-                    g.cmdopts.cmd = "spawn";
+                    g.cmdopts.cmd = CMD_SPAWN;
                     g.cmdopts.spawn.def_timeout = PASS_DEF_TMOUT;
                     g.cmdopts.spawn.zombie_idle = PASS_DEF_ZOMBIE_TTL;
                     g.cmdopts.spawn.logfd = -1;
 
                     /* wait */
                 } else if (str1of(arg, "wait", "w", NULL) ) {
-                    g.cmdopts.cmd = "wait";
+                    g.cmdopts.cmd = CMD_WAIT;
                     g.cmdopts.passing = true;
                     g.cmdopts.pass.subcmd = PASS_SUBCMD_WAIT;
                     g.cmdopts.pass.no_input = true;
@@ -362,7 +362,7 @@ getargs(int argc, char **argv)
             }
 
             /* chkerr */
-        } else if (streq(g.cmdopts.cmd, "chkerr") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_CHKERR) ) {
             if (str1of(arg, "-errno", "-err", "-no", "-code", NULL) ) {
                 next = nextarg(argv, "-errno", & i);
                 g.cmdopts.chkerr.errcode = arg2uint(next);
@@ -375,12 +375,12 @@ getargs(int argc, char **argv)
             }
 
             /* close */
-        } else if (streq(g.cmdopts.cmd, "close") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_CLOSE) ) {
             usage_err = true;
             break;
 
             /* expect */
-        } else if (streq(g.cmdopts.cmd, "expect") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_EXPECT) ) {
             struct st_pass * st = & g.cmdopts.pass;
             if (str1of(arg, "-exact", "-ex", "-re", "-glob", "-gl", NULL) ) {
                 next = nextarg(argv, "-exact", & i);
@@ -420,7 +420,7 @@ getargs(int argc, char **argv)
             }
 
             /* expect_out */
-        } else if (streq(g.cmdopts.cmd, "expect_out") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_EXPOUT) ) {
             if (str1of(arg, "-index", "-i", NULL) ) {
                 next = nextarg(argv, "-index", & i);
                 g.cmdopts.expout.index = arg2uint(next);
@@ -430,7 +430,7 @@ getargs(int argc, char **argv)
             }
 
             /* get */
-        } else if (streq(g.cmdopts.cmd, "get") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_GET) ) {
             static bool got_one = false;
 
             if ( got_one) {
@@ -469,13 +469,22 @@ getargs(int argc, char **argv)
             }
 
             /* help */
-        } else if (streq(g.cmdopts.cmd, "help") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_HELP) ) {
             usage_err = true;
             break;
 
             /* interact */
-        } else if (streq(g.cmdopts.cmd, "interact") ) {
-            if (str1of(arg, "-lookback", "-lb", NULL) ) {
+        } else if (streq(g.cmdopts.cmd, CMD_INTERACT) ) {
+            struct st_pass * st = & g.cmdopts.pass;
+            if (str1of(arg, "-re", NULL) ) {
+                next = nextarg(argv, "-re", & i);
+                st->pattern = next;
+                st->expflags |= PASS_EXPECT_ERE;
+            } else if (str1of(arg, "-nocase", "-icase", "-ic", "-i", NULL) ) {
+                st->expflags |= PASS_EXPECT_ICASE;
+            } else if (str1of(arg, "-cstring", "-cstr", "-c", NULL) ) {
+                st->cstring = true;
+            } else if (str1of(arg, "-lookback", "-lb", NULL) ) {
                 next = nextarg(argv, "-lookback", & i);
                 g.cmdopts.pass.lookback = arg2uint(next);
             } else if (str1of(arg, "-nodetach", "-nodet", "-nod", NULL) ) {
@@ -486,7 +495,7 @@ getargs(int argc, char **argv)
             }
 
             /* kill */
-        } else if (streq(g.cmdopts.cmd, "kill") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_KILL) ) {
             if (strmatch(arg, "^-[0-9]+$") ) {
                 g.cmdopts.kill.signal = arg2uint(arg + 1);
             } else if (arg[0] == '-') {
@@ -501,7 +510,7 @@ getargs(int argc, char **argv)
             }
 
             /* send */
-        } else if (streq(g.cmdopts.cmd, "send") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_SEND) ) {
             struct st_send * st = & g.cmdopts.send;
             if (str1of(arg, "-cstring", "-cstr", "-c", NULL) ) {
                 st->cstring = true;
@@ -556,7 +565,7 @@ getargs(int argc, char **argv)
             }
 
             /* set */
-        } else if (streq(g.cmdopts.cmd, "set") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_SET) ) {
             struct st_set * st = & g.cmdopts.set;
             if (str1of(arg, "-autowait", "-nowait", "-now", NULL) ) {
                 st->set_autowait = true;
@@ -616,7 +625,7 @@ getargs(int argc, char **argv)
             }
 
             /* spawn */
-        } else if (streq(g.cmdopts.cmd, "spawn") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_SPAWN) ) {
             struct st_spawn * st = & g.cmdopts.spawn;
             if (streq(arg, "-nohup") ) {
                 st->nohup = true;
@@ -666,12 +675,12 @@ getargs(int argc, char **argv)
             }
 
             /* version */
-        } else if (streq(g.cmdopts.cmd, "version") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_VERSION) ) {
             usage_err = true;
             break;
 
             /* wait */
-        } else if (streq(g.cmdopts.cmd, "wait") ) {
+        } else if (streq(g.cmdopts.cmd, CMD_WAIT) ) {
             if (str1of(arg, "-lookback", "-lb", NULL) ) {
                 next = nextarg(argv, "-lookback", & i);
                 g.cmdopts.pass.lookback = arg2uint(next);
@@ -691,7 +700,7 @@ getargs(int argc, char **argv)
     }
 
     /* expect */
-    if (streq(g.cmdopts.cmd, "expect") ) {
+    if (streq(g.cmdopts.cmd, CMD_EXPECT) ) {
         struct st_pass * st = & g.cmdopts.pass;
         int flags = st->expflags & (PASS_EXPECT_EOF | PASS_EXPECT_EXACT
                                     | PASS_EXPECT_ERE | PASS_EXPECT_GLOB);
@@ -730,11 +739,33 @@ getargs(int argc, char **argv)
         }
 
         /* help */
-    } else if (streq(g.cmdopts.cmd, "help") ) {
+    } else if (streq(g.cmdopts.cmd, CMD_HELP) ) {
         usage(0);
 
+        /* interact */
+    } else if (streq(g.cmdopts.cmd, CMD_INTERACT) ) {
+        struct st_pass * st = & g.cmdopts.pass;
+
+        if (st->pattern != NULL) {
+            if (st->cstring) {
+                char * pattern = NULL;
+                int len = 0;
+                strunesc(st->pattern, & pattern, & len);
+                if (pattern == NULL) {
+                    fatal(ERROR_USAGE, "invalid backslash escapes: %s", st->pattern);
+                } else if (strlen(pattern) != len) {
+                    fatal(ERROR_USAGE, "pattern cannot include NULL bytes");
+                } else {
+                    st->pattern = pattern;
+                }
+            }
+            if (strlen(st->pattern) ==  0) {
+                fatal(ERROR_USAGE, "pattern cannot be empty");
+            }
+        }
+
         /* send */
-    } else if (streq(g.cmdopts.cmd, "send") ) {
+    } else if (streq(g.cmdopts.cmd, CMD_SEND) ) {
         struct st_send * st = & g.cmdopts.send;
         char * data = NULL;
 
@@ -768,11 +799,11 @@ getargs(int argc, char **argv)
         }
 
         /* spawn */
-    } else if (streq(g.cmdopts.cmd, "spawn") && g.cmdopts.spawn.argv == NULL) {
+    } else if (streq(g.cmdopts.cmd, CMD_SPAWN) && g.cmdopts.spawn.argv == NULL) {
         fatal(ERROR_USAGE, "spawn requires more arguments");
 
         /* version */
-    } else if (streq(g.cmdopts.cmd, "version") ) {
+    } else if (streq(g.cmdopts.cmd, CMD_VERSION) ) {
         printf("%s %s\n", SEXPECT, VERSION_);
         exit(0);
     }
@@ -782,7 +813,7 @@ getargs(int argc, char **argv)
         g.cmdopts.sockpath = getenv("SEXPECT_SOCKFILE");
     }
     /* most commands require ``-sock'' */
-    if (g.cmdopts.sockpath == NULL && ! streq(g.cmdopts.cmd, "chkerr") ) {
+    if (g.cmdopts.sockpath == NULL && ! streq(g.cmdopts.cmd, CMD_CHKERR) ) {
         fatal(ERROR_USAGE, "-sock not specified");
     }
     /* if sockfile exists it must be a socket file */
@@ -808,7 +839,7 @@ main(int argc, char *argv[])
 
     getargs(argc, argv);
 
-    if (streq(g.cmdopts.cmd, "spawn") ) {
+    if (streq(g.cmdopts.cmd, CMD_SPAWN) ) {
         serv_main( & g.cmdopts);
     } else {
         cli_main( & g.cmdopts);
