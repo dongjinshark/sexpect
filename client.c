@@ -510,7 +510,8 @@ cli_main(struct st_cmdopts * cmdopts)
         ttlv_t * subcmd;
 
         /* "expect" without a pattern */
-        if (cmdopts->pass.expflags == 0) {
+        if (cmdopts->pass.subcmd == PASS_SUBCMD_EXPECT
+                && cmdopts->pass.expflags == 0) {
             cmdopts->pass.expflags = PASS_EXPECT_ERE;
             cmdopts->pass.pattern = ".*";
         }
@@ -532,7 +533,11 @@ cli_main(struct st_cmdopts * cmdopts)
             ttlv_append_child(msg_out, timeout, NULL);
         }
 
-        if (cmdopts->pass.pattern) {
+        /* - only send pattern to server for "expect"
+         * - don't send pattern to server for "interact"
+         */
+        if (cmdopts->pass.subcmd == PASS_SUBCMD_EXPECT
+                && cmdopts->pass.pattern != NULL) {
             pattern = ttlv_new_text(TAG_PATTERN,
                 strlen(cmdopts->pass.pattern), cmdopts->pass.pattern);
             ttlv_append_child(msg_out, pattern, NULL);

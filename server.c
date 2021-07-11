@@ -92,6 +92,9 @@ static struct {
 #define is_CHLD_DEAD    (g.SIGCHLDed)
 #define is_CHLD_WAITED  (g.waited)
 #define is_PASSING      (g.conn.passing)
+#define is_EXPECT       (g.conn.pass.subcmd == PASS_SUBCMD_EXPECT)
+#define is_WAIT         (g.conn.pass.subcmd == PASS_SUBCMD_WAIT)
+#define is_INTERACT     (g.conn.pass.subcmd == PASS_SUBCMD_INTERACT)
 
 static void
 daemonize(void)
@@ -287,7 +290,7 @@ serv_process_msg(void)
 
     case TAG_PASS:
         {
-            ttlv_t * t;
+            ttlv_t * t = NULL;
 
             g.conn.passing = true;
 
@@ -298,8 +301,10 @@ serv_process_msg(void)
             g.conn.pass.expflags = t->v_int;
 
             /* expect with a pattern */
-            if ( (t = ttlv_find_child(msg_in, TAG_PATTERN) ) != NULL) {
-                g.conn.pass.pattern = strdup( (char *) t->v_text);
+            if (is_EXPECT) {
+                if ( (t = ttlv_find_child(msg_in, TAG_PATTERN) ) != NULL) {
+                    g.conn.pass.pattern = strdup( (char *) t->v_text);
+                }
             }
 
             /* expect -timeout */
@@ -309,7 +314,7 @@ serv_process_msg(void)
                 g.conn.pass.timeout = g.cmdopts->spawn.def_timeout;
             }
 
-            /* interact -lookback */
+            /* <interact|expect> -lookback */
             if ( (t = ttlv_find_child(msg_in, TAG_LOOKBACK) ) != NULL) {
                 if (t->v_int > 0) {
                     g.conn.pass.lookback = t->v_int;
@@ -597,6 +602,7 @@ expect_exact(void)
 static bool
 expect_glob(void)
 {
+    bug("server side should never see PASS_EXPECT_GLOB");
     return false;
 }
 
@@ -655,6 +661,10 @@ expect_ere(void)
 static bool
 serv_expect(void)
 {
+    if ( ! is_EXPECT) {
+        return false;
+    }
+
     if (g.expcnt == 0 && not_PTM_OPEN) {
         /* ptm is closed and there's no data in expect buf */
         return false;
@@ -795,14 +805,14 @@ serv_pass(void)
     }
 #endif
 
-    if (g.conn.pass.subcmd == PASS_SUBCMD_EXPECT) {
+    if (is_EXPECT) {
         /* copy data from raw buf to expect buf */
         buf_raw2expect();
     }
 
     /* "expect" with a pattern */
-    if ((g.conn.pass.expflags \
-         & (PASS_EXPECT_EXACT | PASS_EXPECT_GLOB | PASS_EXPECT_ERE) ) != 0) {
+    if (is_EXPECT && (g.conn.pass.expflags \
+            & (PASS_EXPECT_EXACT | PASS_EXPECT_GLOB | PASS_EXPECT_ERE) ) != 0) {
 
         if (serv_expect() ) {
             msg_out = ttlv_new_bool(TAG_MATCHED, 1);
@@ -814,8 +824,7 @@ serv_pass(void)
         }
 
         /* interact, wait */
-    } else if (g.conn.pass.subcmd == PASS_SUBCMD_INTERACT 
-               || g.conn.pass.subcmd == PASS_SUBCMD_WAIT) {
+    } else if (is_INTERACT || is_WAIT) {
         g.expoffset = g.ntotal;
         g.expcnt = 0;
     }
@@ -868,6 +877,17 @@ serv_pass(void)
 
         return;
     }
+}
+
+static void
+serv_cleanup_conn(void)
+{
+    if (g.conn.pass.pattern != NULL) {
+        free(g.conn.pass.pattern);
+    }
+
+    memset( & g.conn, 0, sizeof(g.conn) );
+    g.conn.sock = -1;
 }
 
 static void
@@ -1001,7 +1021,7 @@ serv_loop(void)
                     close(g.conn.sock);
                 }
                 debug("new client connected");
-                memset( & g.conn, 0, sizeof(g.conn) );
+                serv_cleanup_conn();
                 g.conn.sock = newconn;
                 Clock_gettime( & g.conn.pass.startime);
             }
