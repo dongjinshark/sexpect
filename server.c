@@ -27,6 +27,7 @@
 
 #define SIZE_RAW_BUF    (16 * 1024)
 #define MAX_OLD_DATA    ( 8 * 1024)
+#define EXPECT_OUT_NUM  (9 + 1)
 
 #if (SIZE_RAW_BUF + 1024) > PASS_MAX_MSG
 #error "SIZE_RAW_BUF too large compared to PASS_MAX_MSG"
@@ -83,7 +84,7 @@ static struct {
     char * expbuf;      /* NULL bytes removed */
     int    expbufsize;
     int    expcnt;      /* current data in `expbuf' */
-    char * expout[10];  /* $expect_out(N,string) */
+    char * expout[EXPECT_OUT_NUM]; /* $expect_out(N,string) */
 } g;
 #define is_CONNECTED    (g.conn.sock >= 0)
 #define not_CONNECTED   ( ! is_CONNECTED)
@@ -135,7 +136,7 @@ free_expect_out(void)
 {
     int i;
 
-    for (i = 0; i < 10; ++i) {
+    for (i = 0; i < EXPECT_OUT_NUM; ++i) {
         free(g.expout[i]);
         g.expout[i] = NULL;
     }
@@ -312,6 +313,7 @@ serv_process_msg(void)
             t = ttlv_find_child(msg_in, TAG_EXP_FLAGS);
             g.conn.pass.expflags = t->v_int;
 
+            /* {expect|interact} with a pattern */
             if ( (t = ttlv_find_child(msg_in, TAG_PATTERN) ) != NULL) {
                 g.conn.pass.pattern = strdup( (char *) t->v_text);
 
@@ -325,7 +327,7 @@ serv_process_msg(void)
                 g.conn.pass.timeout = g.cmdopts->spawn.def_timeout;
             }
 
-            /* <interact|expect> -lookback */
+            /* {interact|expect} -lookback */
             if ( (t = ttlv_find_child(msg_in, TAG_LOOKBACK) ) != NULL) {
                 if (t->v_int > 0) {
                     g.conn.pass.lookback = t->v_int;
@@ -339,7 +341,7 @@ serv_process_msg(void)
         {
             int index = msg_in->v_int;
 
-            if (index >= 0 && index < 10) {
+            if (index >= 0 && index < EXPECT_OUT_NUM) {
                 if (g.expout[index] != NULL) {
                     msg_out = ttlv_new_text(TAG_EXPOUT_TEXT,
                         strlen(g.expout[index]),
@@ -615,7 +617,7 @@ static bool
 expect_ere(void)
 {
     regex_t re;
-    regmatch_t matches[10];
+    regmatch_t matches[EXPECT_OUT_NUM];
     int reflags = REG_EXTENDED;
     int i, ret, len;
     bool nosub = false;
@@ -632,7 +634,7 @@ expect_ere(void)
         return false;
     }
 
-    ret = regexec( & re, g.expbuf, 10, matches, 0);
+    ret = regexec( & re, g.expbuf, EXPECT_OUT_NUM, matches, 0);
     regfree( & re);
     if (ret != 0) {
         return false;
@@ -642,7 +644,7 @@ expect_ere(void)
     if ( ! nosub) {
         free_expect_out();
 
-        for (i = 0; i < 10; ++i) {
+        for (i = 0; i < EXPECT_OUT_NUM; ++i) {
             if (matches[i].rm_so == -1) {
                 continue;
             }
