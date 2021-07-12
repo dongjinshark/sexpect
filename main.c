@@ -479,10 +479,7 @@ getargs(int argc, char **argv)
             if (str1of(arg, "-re", NULL) ) {
                 next = nextarg(argv, "-re", & i);
                 st->pattern = next;
-                /* don't set 'expflags' for "interact" */
-#if 0
                 st->expflags |= PASS_EXPECT_ERE;
-#endif
             } else if (str1of(arg, "-nocase", "-icase", "-ic", "-i", NULL) ) {
                 st->expflags |= PASS_EXPECT_ICASE;
             } else if (str1of(arg, "-cstring", "-cstr", "-c", NULL) ) {

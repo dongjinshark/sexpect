@@ -160,66 +160,6 @@ cli_send_winsize(void)
     return 0;
 }
 
-static bool
-cli_interact_matched(ttlv_t * msg)
-{
-    struct st_pass * pass = & g.cmdopts->pass;
-    const int bufsize = 4096;
-    static int buflen = 0;
-    const int halfsize = bufsize / 2;
-    static char * buf = NULL;
-    char * new = NULL;
-    int newlen = 0, copylen = 0;
-    int i;
-
-    if (buf == NULL) {
-        /* one more byte for trailing '\0' */
-        buf = malloc(bufsize + 1);
-        if (buf == NULL) {
-            fatal_sys("malloc");
-        }
-    }
-
-    if ( ! streq(g.cmdopts->cmd, CMD_INTERACT) || pass->pattern == NULL) {
-        return false;
-    }
-    if (msg->tag != TAG_OUTPUT) {
-        return false;
-    }
-
-    new = (char *)msg->v_raw;
-    newlen = msg->length;
-    while (newlen > 0) {
-        if (buflen > halfsize) {
-            memmove(buf, buf + buflen - halfsize, halfsize);
-            buflen = halfsize;
-        }
-
-        if (newlen > bufsize - buflen) {
-            copylen = bufsize - buflen;
-        } else {
-            copylen = newlen;
-        }
-
-        /* copy new data to match buffer, with NULL bytes removed */
-        for (i = 0; i < copylen; ++i) {
-            if (new[i] != '\0') {
-                buf[buflen] = new[i];
-                ++ buflen;
-            }
-        }
-        buf[buflen] = 0;
-        new += copylen;
-        newlen -= copylen;
-
-        if (strmatch_ex(buf, pass->pattern, pass->expflags & PASS_EXPECT_ICASE) ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 static void
 cli_loop(void)
 {
@@ -307,10 +247,6 @@ cli_loop(void)
                 cli_disconn(0);
             } else if (msg_in->tag == TAG_OUTPUT) {
                 write(STDOUT_FILENO, msg_in->v_raw, msg_in->length);
-
-                if (cli_interact_matched(msg_in) ) {
-                    cli_disconn(0);
-                }
             } else if (msg_in->tag == TAG_EXPOUT_TEXT) {
                 write(STDOUT_FILENO, msg_in->v_text, msg_in->length);
                 cli_disconn(0);
@@ -533,11 +469,7 @@ cli_main(struct st_cmdopts * cmdopts)
             ttlv_append_child(msg_out, timeout, NULL);
         }
 
-        /* - only send pattern to server for "expect"
-         * - don't send pattern to server for "interact"
-         */
-        if (cmdopts->pass.subcmd == PASS_SUBCMD_EXPECT
-                && cmdopts->pass.pattern != NULL) {
+        if (cmdopts->pass.pattern != NULL) {
             pattern = ttlv_new_text(TAG_PATTERN,
                 strlen(cmdopts->pass.pattern), cmdopts->pass.pattern);
             ttlv_append_child(msg_out, pattern, NULL);

@@ -95,6 +95,7 @@ static struct {
 #define is_EXPECT       (g.conn.pass.subcmd == PASS_SUBCMD_EXPECT)
 #define is_WAIT         (g.conn.pass.subcmd == PASS_SUBCMD_WAIT)
 #define is_INTERACT     (g.conn.pass.subcmd == PASS_SUBCMD_INTERACT)
+#define has_PATTERN     (g.conn.pass.pattern != NULL)
 
 static void
 daemonize(void)
@@ -300,11 +301,8 @@ serv_process_msg(void)
             t = ttlv_find_child(msg_in, TAG_EXP_FLAGS);
             g.conn.pass.expflags = t->v_int;
 
-            /* expect with a pattern */
-            if (is_EXPECT) {
-                if ( (t = ttlv_find_child(msg_in, TAG_PATTERN) ) != NULL) {
-                    g.conn.pass.pattern = strdup( (char *) t->v_text);
-                }
+            if ( (t = ttlv_find_child(msg_in, TAG_PATTERN) ) != NULL) {
+                g.conn.pass.pattern = strdup( (char *) t->v_text);
             }
 
             /* expect -timeout */
@@ -661,10 +659,6 @@ expect_ere(void)
 static bool
 serv_expect(void)
 {
-    if ( ! is_EXPECT) {
-        return false;
-    }
-
     if (g.expcnt == 0 && not_PTM_OPEN) {
         /* ptm is closed and there's no data in expect buf */
         return false;
@@ -805,15 +799,14 @@ serv_pass(void)
     }
 #endif
 
-    if (is_EXPECT) {
+    /* "expect" or "interact -re" */
+    if (is_EXPECT || has_PATTERN) {
         /* copy data from raw buf to expect buf */
         buf_raw2expect();
     }
 
-    /* "expect" with a pattern */
-    if (is_EXPECT && (g.conn.pass.expflags \
-            & (PASS_EXPECT_EXACT | PASS_EXPECT_GLOB | PASS_EXPECT_ERE) ) != 0) {
-
+    /* "expect" or "interact" with a pattern */
+    if (has_PATTERN) {
         if (serv_expect() ) {
             msg_out = ttlv_new_bool(TAG_MATCHED, 1);
             serv_msg_send(&msg_out, true);
