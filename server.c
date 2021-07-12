@@ -131,6 +131,17 @@ daemonize(void)
 }
 
 static void
+free_expect_out(void)
+{
+    int i;
+
+    for (i = 0; i < 10; ++i) {
+        free(g.expout[i]);
+        g.expout[i] = NULL;
+    }
+}
+
+static void
 serv_sigCHLD(int signo)
 {
     g.SIGCHLDed = true;
@@ -303,6 +314,8 @@ serv_process_msg(void)
 
             if ( (t = ttlv_find_child(msg_in, TAG_PATTERN) ) != NULL) {
                 g.conn.pass.pattern = strdup( (char *) t->v_text);
+
+                free_expect_out();
             }
 
             /* expect -timeout */
@@ -569,7 +582,6 @@ static bool
 expect_exact(void)
 {
     int pattern_len;
-    int i;
     char * found;
 
     if ((g.conn.pass.expflags & PASS_EXPECT_ICASE) != 0) {
@@ -583,12 +595,7 @@ expect_exact(void)
         memmove(g.expbuf, found + pattern_len, g.expcnt);
         g.expbuf[g.expcnt] = '\0';
 
-        /* $expect_out(0,string) */
-        for (i = 0; i < 10; ++i) {
-            /* free old $expect_out */
-            free(g.expout[i]);
-            g.expout[i] = NULL;
-        }
+        free_expect_out();
         g.expout[0] = strdup(g.conn.pass.pattern);
 
         return true;
@@ -633,11 +640,9 @@ expect_ere(void)
 
     /* $expect_out(N,string) */
     if ( ! nosub) {
-        for (i = 0; i < 10; ++i) {
-            /* free old $expect_out */
-            free(g.expout[i]);
-            g.expout[i] = NULL;
+        free_expect_out();
 
+        for (i = 0; i < 10; ++i) {
             if (matches[i].rm_so == -1) {
                 continue;
             }
@@ -800,7 +805,7 @@ serv_pass(void)
 #endif
 
     /* "expect" or "interact -re" */
-    if (is_EXPECT || has_PATTERN) {
+    if (has_PATTERN) {
         /* copy data from raw buf to expect buf */
         buf_raw2expect();
     }
@@ -818,14 +823,14 @@ serv_pass(void)
 
         /* interact, wait */
     } else if (is_INTERACT || is_WAIT) {
-        g.expoffset = g.ntotal;
+        g.expoffset = g.ntotal - g.newcnt;
         g.expcnt = 0;
     }
 
     /* Having received SIGCHLD does not necessarily mean EOF. There may still
      * data from the child for reading. So only report EOF when fd_ptm < 0.
      */
-    if (not_PTM_OPEN && g.expoffset >= g.ntotal) {
+    if (not_PTM_OPEN && g.newcnt == 0) {
         if ((g.conn.pass.expflags & PASS_EXPECT_EOF) != 0) {
             /* [<] expect -eof */
 
