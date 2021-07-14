@@ -364,10 +364,10 @@ getargs(int argc, char **argv)
             /* chkerr */
         } else if (streq(g.cmdopts.cmd, CMD_CHKERR) ) {
             if (str1of(arg, "-errno", "-err", "-no", "-code", NULL) ) {
-                next = nextarg(argv, "-errno", & i);
+                next = nextarg(argv, arg, & i);
                 g.cmdopts.chkerr.errcode = arg2uint(next);
             } else if (streq(arg, "-is") ) {
-                next = nextarg(argv, "-is", & i);
+                next = nextarg(argv, arg, & i);
                 g.cmdopts.chkerr.cmpto = next;
             } else {
                 usage_err = true;
@@ -383,7 +383,7 @@ getargs(int argc, char **argv)
         } else if (streq(g.cmdopts.cmd, CMD_EXPECT) ) {
             struct st_pass * st = & g.cmdopts.pass;
             if (str1of(arg, "-exact", "-ex", "-re", "-glob", "-gl", NULL) ) {
-                next = nextarg(argv, "-exact", & i);
+                next = nextarg(argv, arg, & i);
                 st->pattern = next;
                 if (str1of(arg, "-exact", "-ex", NULL) ) {
                     st->expflags |= PASS_EXPECT_EXACT;
@@ -405,7 +405,7 @@ getargs(int argc, char **argv)
                     st->timeout = -1;
                 }
             } else if (str1of(arg, "-lookback", "-lb", NULL) ) {
-                next = nextarg(argv, "-lookback", & i);
+                next = nextarg(argv, arg, & i);
                 g.cmdopts.pass.lookback = arg2uint(next);
             } else if (arg[0] == '-') {
                 fatal(ERROR_USAGE, "unknown expect option: %s", arg);
@@ -422,7 +422,7 @@ getargs(int argc, char **argv)
             /* expect_out */
         } else if (streq(g.cmdopts.cmd, CMD_EXPOUT) ) {
             if (str1of(arg, "-index", "-i", NULL) ) {
-                next = nextarg(argv, "-index", & i);
+                next = nextarg(argv, arg, & i);
                 g.cmdopts.expout.index = arg2uint(next);
             } else {
                 usage_err = true;
@@ -477,7 +477,7 @@ getargs(int argc, char **argv)
         } else if (streq(g.cmdopts.cmd, CMD_INTERACT) ) {
             struct st_pass * st = & g.cmdopts.pass;
             if (str1of(arg, "-re", NULL) ) {
-                next = nextarg(argv, "-re", & i);
+                next = nextarg(argv, arg, & i);
                 st->pattern = next;
                 st->expflags |= PASS_EXPECT_ERE;
             } else if (str1of(arg, "-nocase", "-icase", "-ic", "-i", NULL) ) {
@@ -485,7 +485,7 @@ getargs(int argc, char **argv)
             } else if (str1of(arg, "-cstring", "-cstr", "-c", NULL) ) {
                 st->cstring = true;
             } else if (str1of(arg, "-lookback", "-lb", NULL) ) {
-                next = nextarg(argv, "-lookback", & i);
+                next = nextarg(argv, arg, & i);
                 g.cmdopts.pass.lookback = arg2uint(next);
             } else if (str1of(arg, "-nodetach", "-nodet", "-nod", NULL) ) {
                 g.cmdopts.pass.no_detach = true;
@@ -524,7 +524,7 @@ getargs(int argc, char **argv)
                     break;
                 }
                 st->env = true;
-                next = nextarg(argv, "-env", & i);
+                next = nextarg(argv, arg, & i);
                 st->data = getenv(next);
                 if (st->data == NULL) {
                     fatal(ERROR_USAGE, "env var not found: %s", next);
@@ -537,7 +537,7 @@ getargs(int argc, char **argv)
                     break;
                 }
                 st->file = true;
-                next = nextarg(argv, "-file", & i);
+                next = nextarg(argv, arg, & i);
                 st->data = readfile(next, & st->len);
             } else if (streq(arg, "--" ) ) {
                 if (argv[i + 1] != NULL) {
@@ -570,7 +570,7 @@ getargs(int argc, char **argv)
             if (str1of(arg, "-autowait", "-nowait", "-now", NULL) ) {
                 st->set_autowait = true;
 
-                next = nextarg(argv, "-autowait", & i);
+                next = nextarg(argv, arg, & i);
                 if (str_true(next) ) {
                     st->autowait = true;
                 } else if (str_false(next) ) {
@@ -585,7 +585,7 @@ getargs(int argc, char **argv)
             } else if (str1of(arg, "-nonblock", "-nb", "-discard", NULL ) ) {
                 st->set_nonblock = true;
 
-                next = nextarg(argv, "-nonblock", & i);
+                next = nextarg(argv, arg, & i);
                 if (str_true(next) ) {
                     st->nonblock = true;
                 } else if (str_false(next) ) {
@@ -597,7 +597,7 @@ getargs(int argc, char **argv)
                 }
             } else if (str1of(arg, "-timeout", "-t", NULL ) ) {
                 st->set_timeout = true;
-                next = nextarg(argv, "-timeout", & i);
+                next = nextarg(argv, arg, & i);
                 st->timeout = arg2int(next);
 
                 if (st->timeout < 0) {
@@ -605,7 +605,7 @@ getargs(int argc, char **argv)
                 }
             } else if (str1of(arg, "-ttl", NULL ) ) {
                 st->set_ttl = true;
-                next = nextarg(argv, "-timeout", & i);
+                next = nextarg(argv, arg, & i);
                 st->ttl = arg2int(next);
 
                 if (st->ttl < 0) {
@@ -613,7 +613,7 @@ getargs(int argc, char **argv)
                 }
             } else if (str1of(arg, "-idle-close", "-idle", NULL ) ) {
                 st->set_idle = true;
-                next = nextarg(argv, "-idle-close", & i);
+                next = nextarg(argv, arg, & i);
                 st->idle = arg2int(next);
 
                 if (st->idle < 0) {
@@ -638,7 +638,7 @@ getargs(int argc, char **argv)
             } else if (str1of(arg, "-close-on-exit", "-cloexit", NULL) ) {
                 st->cloexit = true;
             } else if (str1of(arg, "-term", "-T", NULL) ) {
-                next = nextarg(argv, "-term", & i);
+                next = nextarg(argv, arg, & i);
                 if (strlen(next) == 0) {
                     fatal(ERROR_USAGE, "-term cannot be empty");
                 }
@@ -682,7 +682,7 @@ getargs(int argc, char **argv)
             /* wait */
         } else if (streq(g.cmdopts.cmd, CMD_WAIT) ) {
             if (str1of(arg, "-lookback", "-lb", NULL) ) {
-                next = nextarg(argv, "-lookback", & i);
+                next = nextarg(argv, arg, & i);
                 g.cmdopts.pass.lookback = arg2uint(next);
             } else {
                 usage_err = true;
