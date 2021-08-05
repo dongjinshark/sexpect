@@ -1,6 +1,6 @@
 = sexpect(1)
 :doctype: manpage
-:sexpect-version: 2.3.4
+:sexpect-version: 2.3.7
 :man manual: sexpect manual
 :man source: sexpect {sexpect-version}
 :page-layout: base
