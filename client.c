@@ -226,7 +226,7 @@ cli_loop(void)
 #if 0
                     system("tput cnorm");
 #endif
-                    cli_disconn(0);
+                    cli_disconn(ERROR_DETACH);
                 }
 
                 msg_out = ttlv_new_text(TAG_INPUT, nread, buf);

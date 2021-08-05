@@ -51,6 +51,7 @@ enum {
     ERROR_TIMEOUT,
     ERROR_EXITED,
     ERROR_INTERNAL,
+    ERROR_DETACH,
 
     /* THE END */
     ERROR_END__,

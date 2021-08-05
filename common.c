@@ -22,6 +22,7 @@ static struct {
 } g;
 
 static struct v2n_map g_v2n_error[] = {
+    V2N_MAP(ERROR_DETACH),
     V2N_MAP(ERROR_EOF),
     V2N_MAP(ERROR_EXITED),
     V2N_MAP(ERROR_GENERAL),
